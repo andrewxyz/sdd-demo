@@ -413,7 +413,7 @@ Found by running the system. None are hidden, and none are fixed yet.
 | 8 | Archiving **overwrites** a same-named file | Earlier evidence for a reused filename is lost |
 | 9 | PGP **signature verification** is not implemented | The file contract says to verify if signed |
 | 10 | No manual trigger | No endpoint or command to force a scan |
-| 11 | Some paths have **no automated test** | The throughput target (SC-001, never run), the deadline monitor, and retention purge |
+| 11 | Some paths have **no automated test** | The missed-delivery deadline monitor and the retention purge. (The throughput target SC-001 *is* covered: CI settled 500,000 transactions in 133 seconds against a 30-minute budget) |
 | 12 | `tasks.md` checkboxes were **never ticked** | Implementation tracked in conversation, not in the file. `/speckit-converge` would reconcile it |
 | 13 | Testcontainers fails on **Docker 29+** | Worked around with `-Dit.jdbc.url`. Fine on older Docker |
 | 14 | A badly encrypted file gives **raw Java errors and the wrong alert** | `FileDecryptor` only converts `IOException` and `PGPException` into the proper decryption error. A plain CSV or password-only encryption instead surfaces a `NullPointerException` or `ClassCastException` message under a generic `RECONCILIATION_MISMATCH` alert, not `DECRYPTION_FAILED`. Only the wrong-key case behaves as designed. Found by trying all four bad-encryption cases against the live app after the docs had wrongly claimed otherwise |
