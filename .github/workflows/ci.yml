@@ -1,6 +1,8 @@
 name: CI
 
 on:
+  # Adds the "Run workflow" button on the Actions tab and makes `gh workflow run ci.yml` work.
+  workflow_dispatch:
   pull_request:
   push:
     branches: [master]
@@ -40,7 +42,9 @@ jobs:
 
   nightly-throughput:
     name: Throughput (SC-001)
-    if: github.event_name == 'push'
+    # Also runs on a manual trigger. With the push-only condition a manual run would silently
+    # skip this job, so "run CI by hand" would quietly mean "run two thirds of CI".
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
