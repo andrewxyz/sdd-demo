@@ -177,6 +177,7 @@ You can watch it and re-run it from your terminal with the GitHub CLI.
 
 | Command | What it does |
 |---|---|
+| `gh workflow run ci.yml` | **Start a brand-new run by hand**, on the latest code |
 | `gh run list` | List recent runs, newest first |
 | `gh run view <run-id>` | Show one run and its jobs |
 | `gh run watch <run-id>` | Follow a run live until it finishes |
@@ -185,6 +186,44 @@ You can watch it and re-run it from your terminal with the GitHub CLI.
 
 Inside the cloned repository folder, `gh` finds the repository by itself. From anywhere else, add
 `-R <owner>/<repo>`, for example `-R andrewxyz/sdd-demo`.
+
+### Start CI by hand (the manual trigger)
+
+`ci.yml` has a `workflow_dispatch` trigger, which is GitHub's name for "a person pressed the
+button". It lets you start CI without pushing any code.
+
+```bash
+gh workflow run ci.yml        # prints the new run's web address
+gh run list                   # the new run appears at the top with the event workflow_dispatch
+gh run watch                  # choose it from the list and follow it until it finishes
+```
+
+Real output from the first manual run:
+
+```text
+$ gh workflow run ci.yml
+https://github.com/andrewxyz/sdd-demo/actions/runs/38903284348
+
+$ gh run list
+in_progress    CI    CI    master    workflow_dispatch    38903284348    10s    2026-10-16T12:49:46Z
+                                      └── how it was started
+```
+
+Without the terminal: open the repository's **Actions** tab, choose **CI** in the left-hand list,
+then press **Run workflow** (top right of the run list), pick the branch, and confirm. The CLI route
+was tested here; the button is standard GitHub behaviour once the trigger is on the default branch.
+
+A manual run executes **all three jobs**, including the throughput test. That needed one extra
+change: the throughput job used to be limited to `push` events, so a manual run would have silently
+skipped it. Its condition now accepts `push` or `workflow_dispatch`, and the first manual run showed
+all three jobs `success`.
+
+**Start versus re-run, in one line each:**
+
+| You want to... | Use |
+|---|---|
+| Check the latest code again, starting fresh | `gh workflow run ci.yml` |
+| Repeat an earlier run, same commit as before | `gh run rerun <run-id>` |
 
 ### Where the run ID comes from
 
@@ -236,12 +275,15 @@ This was tested: the run's attempt count went from 3 to 4.
   `run <id> cannot be rerun; This workflow is already running`. Wait for it to finish.
 - **A re-run uses the same commit.** It re-checks the same code, and the run's ID stays the same
   while its *attempt* number goes up. To check new code, push it.
-- **There is no "run from scratch" command yet.** The workflow only starts on a push to `master` or
-  a pull request, so `gh workflow run ci.yml` fails with *does not have a workflow_dispatch
-  trigger*. To start a run without changing any code, push an empty commit:
-  `git commit --allow-empty -m "ci: trigger a run" && git push`.
-  Adding a manual trigger would be a small change to `ci.yml`, but the throughput job is limited to
-  `push` events, so it would also need adjusting or it would be skipped on a manual run.
+- **A manual run starts from the branch's latest commit.** `gh workflow run ci.yml` runs the code
+  that is on GitHub, not what is only on your laptop. Push first if you want your latest changes
+  checked.
+- **A flaky test can turn a run red.** One integration test,
+  `AlertDisclosureIT.alerts_are_published_promptly`, has failed once in CI after passing several
+  times. It is a timing race, listed in the README's
+  [known issues](../README.md#9-known-issues-and-honest-gaps), item 15. If a run fails on only that
+  test, open it with `gh run view <run-id> --log-failed` to confirm, then
+  `gh run rerun <run-id> --failed` runs just the failed job again.
 
 ### The same checks on your own machine
 

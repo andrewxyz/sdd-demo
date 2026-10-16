@@ -414,8 +414,8 @@ workarounds were needed. A clean machine has none of that setup and none of thos
 there means the code works on its own.
 
 **What it does in this repository.** The recipe is
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml). On every push to `master`, and on every pull
-request, GitHub starts three jobs on its own computers:
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml). On every push to `master`, on every pull
+request, and whenever you start it by hand, GitHub runs three jobs on its own computers:
 
 | Job | What it checks | First run |
 |---|---|---|
@@ -426,7 +426,18 @@ request, GitHub starts three jobs on its own computers:
 **Where to look.** Open the repository on GitHub and click the **Actions** tab. A green tick means
 everything passed. A red cross means something broke, and clicking it shows what.
 
-**Re-running it** (needs the GitHub CLI, `gh`). Run these inside the repository folder:
+**Starting it by hand** (needs the GitHub CLI, `gh`). Run these inside the repository folder:
+
+```bash
+gh workflow run ci.yml        # start a brand-new run now, on the latest code
+gh run list                   # the new run appears with the event "workflow_dispatch"
+gh run watch                  # pick it from the list and follow it live
+```
+
+On GitHub you can do the same without the terminal: **Actions** tab, choose **CI** on the left,
+then the **Run workflow** button.
+
+**Re-running an existing run:**
 
 ```bash
 gh run list                                     # find a run ID: the long number in each row
@@ -435,7 +446,7 @@ gh run rerun $(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')  
 ```
 
 The run ID is the long number such as `38900788822` in the `gh run list` output, and also the end of
-a run's web address. Where it comes from, why there is no "run from scratch" command yet, and how to
+a run's web address. Where it comes from, the difference between starting and re-running, and how to
 run the same checks locally are explained in **[how-to A6](docs/how-to-test.md#a6-ci--see-it-re-run-it)**.
 
 **How it ties back to this journey.** The constitution said rules such as "no field `@Autowired`"
@@ -443,8 +454,8 @@ are non-negotiable. CI is what **enforces** them: if someone later breaks a rule
 and the change should not be merged. Without CI, those rules are only a wish.
 
 > **Small thing to know:** the Throughput job is labelled "nightly" in the workflow file, but it
-> actually runs on every push to `master`. It takes about 2.5 minutes, so it is cheap, but the label
-> is misleading.
+> actually runs on every push to `master` and on every manual run. It takes about 2.5 minutes, so it
+> is cheap, but the label is misleading.
 
 ---
 
@@ -498,6 +509,7 @@ Found by running the system. None are hidden, and none are fixed yet.
 | 12 | `tasks.md` checkboxes were **never ticked** | Implementation tracked in conversation, not in the file. `/speckit-converge` would reconcile it |
 | 13 | Testcontainers fails on **Docker 29+** | Worked around with `-Dit.jdbc.url`. Fine on older Docker, and fine on GitHub's CI runners |
 | 14 | A badly encrypted file gives **raw Java errors and the wrong alert** | `FileDecryptor` only converts `IOException` and `PGPException` into the proper decryption error. A plain CSV or password-only encryption instead surfaces a `NullPointerException` or `ClassCastException` message under a generic `RECONCILIATION_MISMATCH` alert, not `DECRYPTION_FAILED`. Only the wrong-key case behaves as designed. Found by trying all four bad-encryption cases against the live app after the docs had wrongly claimed otherwise |
+| 15 | A **flaky integration test** | `AlertDisclosureIT.alerts_are_published_promptly` asserts that exactly one alert was captured. But the scheduled missed-delivery monitor also fires an alert as soon as the test application starts, through the same capturing publisher. When the two overlap the count is 2 and the test fails. Observed once in CI (two captured alerts 50 microseconds apart, on the fourth attempt of a run that had passed three times); it passes locally. A test-only fix is to assert on the alert for the test's own execution id instead of on the total count |
 
 Item 1 is the one to fix first: it is a stated requirement (FR-015a) that behaves differently from
 what the spec, the tests and the how-to's own test table suggest.
