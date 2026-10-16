@@ -115,6 +115,7 @@ architecture, came out of the workflow below.
 | 9 | Running it for real | **6 defects** that no test had caught |
 | 10 | Learning to operate it | Poller, landing zone, sentinel, archive explained |
 | 11 | This documentation | Samples, helper scripts, how-to |
+| 12 | Publishing to GitHub | Public repo, and CI confirming it all on a clean machine |
 
 ### Step 0 — Look at the project
 
@@ -272,6 +273,17 @@ Five sample files, a `send` command to encrypt and drop any CSV, the how-to docu
 README. Building the samples meant running them all, which turned up the early-stop finding in
 [section 9](#9-known-issues-and-honest-gaps).
 
+### Step 12 — Publishing to GitHub, and meeting CI
+
+| What happened | Why it matters |
+|---|---|
+| Scanned every file for secrets, keys and personal details before publishing | A public push is hard to undo. Nothing was found, and the throwaway test key lives in the git-ignored `target/` folder |
+| Committed in groups that follow the SDD story: specs, then code, then tests, then tooling, then docs | The history reads like the journey |
+| Created the public repository with the `gh` command | `andrewxyz/sdd-demo` |
+| **The first push was rejected** | GitHub will not accept a file under `.github/workflows/` unless the login token has the `workflow` permission. It had not. The permission was added through a one-time code approved in the browser |
+| CI started by itself and ran three checks on GitHub's own computers | All passed. See [What is CI?](#what-is-ci-and-why-does-this-project-have-it) below |
+| The speed test settled 500,000 transactions in **133 seconds** | That verified a success criterion (SC-001) that had been marked "never run", so the docs were corrected |
+
 ---
 
 ## 4. What got built
@@ -368,6 +380,50 @@ Everything lives in **[docs/how-to-test.md](docs/how-to-test.md)**:
 | Looking for sample files and expected results | [B6](docs/how-to-test.md#b6-sample-files) |
 | Looking for the SQL to check results | [B7](docs/how-to-test.md#b7-checking-the-result-in-the-database) |
 
+### What is CI, and why does this project have it?
+
+**CI** stands for **Continuous Integration**. In plain words:
+
+> **A robot that automatically checks the project every time a change is uploaded to GitHub.**
+
+**An analogy.** Think of a restaurant kitchen. You are the chef and each change is a dish. Before a
+dish reaches a customer, a **taste-tester** tries it, and bad dishes go back. That taste-tester is
+CI. It never gets tired, never forgets, and tests every dish the same way every time.
+
+**Why have it**
+
+| Without CI | With CI |
+|---|---|
+| "It works on my computer" but fails on someone else's | It tests on a **brand-new, clean machine** every time |
+| You forget to run the tests before uploading | It runs **automatically**, so you can't forget |
+| A broken change slips in unnoticed | A **red ✗** appears straight away |
+| Two people's changes break each other | It checks the **combined result** |
+
+The first row matters most here. On the developer's laptop, Docker 29 broke the test tooling and
+workarounds were needed. A clean machine has none of that setup and none of those tricks, so a pass
+there means the code works on its own.
+
+**What it does in this repository.** The recipe is
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml). On every push to `master`, and on every pull
+request, GitHub starts three jobs on its own computers:
+
+| Job | What it checks | First run |
+|---|---|---|
+| Unit tests and constitution gates | 56 tests, including the ArchUnit rules, with **no Docker** | ✅ passed |
+| Integration tests | 31 tests against a real PostgreSQL database | ✅ passed |
+| Throughput | 500,000 transactions settled within 30 minutes | ✅ passed in 133 seconds |
+
+**Where to look.** Open the repository on GitHub and click the **Actions** tab. A green tick means
+everything passed. A red cross means something broke, and clicking it shows what.
+
+**How it ties back to this journey.** The constitution said rules such as "no field `@Autowired`"
+are non-negotiable. CI is what **enforces** them: if someone later breaks a rule, the build turns red
+and the change should not be merged. Without CI, those rules are only a wish.
+
+> **Small thing to know:** the Throughput job is labelled "nightly" in the workflow file, but it
+> actually runs on every push to `master`. It takes about 2.5 minutes, so it is cheap, but the label
+> is misleading.
+
 ---
 
 ## 8. Lessons learned
@@ -394,6 +450,9 @@ Everything lives in **[docs/how-to-test.md](docs/how-to-test.md)**:
    exposed the early-stop gap. Documentation written from memory would have claimed it worked.
 9. **The environment is part of the story.** Docker 29 broke Testcontainers. Recording the
    workaround, rather than hiding it, makes the project reproducible.
+10. **A clean machine is an independent witness.** Everything passed locally, but only CI could say
+    it works without any of the local workarounds. It also settled the one claim nobody had been
+    able to check: 500,000 transactions in 133 seconds. Publishing is part of testing.
 
 ---
 
@@ -415,7 +474,7 @@ Found by running the system. None are hidden, and none are fixed yet.
 | 10 | No manual trigger | No endpoint or command to force a scan |
 | 11 | Some paths have **no automated test** | The missed-delivery deadline monitor and the retention purge. (The throughput target SC-001 *is* covered: CI settled 500,000 transactions in 133 seconds against a 30-minute budget) |
 | 12 | `tasks.md` checkboxes were **never ticked** | Implementation tracked in conversation, not in the file. `/speckit-converge` would reconcile it |
-| 13 | Testcontainers fails on **Docker 29+** | Worked around with `-Dit.jdbc.url`. Fine on older Docker |
+| 13 | Testcontainers fails on **Docker 29+** | Worked around with `-Dit.jdbc.url`. Fine on older Docker, and fine on GitHub's CI runners |
 | 14 | A badly encrypted file gives **raw Java errors and the wrong alert** | `FileDecryptor` only converts `IOException` and `PGPException` into the proper decryption error. A plain CSV or password-only encryption instead surfaces a `NullPointerException` or `ClassCastException` message under a generic `RECONCILIATION_MISMATCH` alert, not `DECRYPTION_FAILED`. Only the wrong-key case behaves as designed. Found by trying all four bad-encryption cases against the live app after the docs had wrongly claimed otherwise |
 
 Item 1 is the one to fix first: it is a stated requirement (FR-015a) that behaves differently from
