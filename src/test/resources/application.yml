@@ -1,0 +1,47 @@
+# Integration-test configuration. The datasource is supplied by Testcontainers via
+# @DynamicPropertySource in AbstractPostgresIT.
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false
+
+ledgersync:
+  landing-zone: ./target/test-landing
+  archive: ./target/test-archive
+  # Off in tests: a background scan would race the job each IT launches explicitly.
+  poll:
+    enabled: false
+    interval: PT1H
+  # 100 rather than the production default of 1000. Spring Batch replays a chunk item-by-item
+  # when an item is skipped, so a reject-dense chunk costs O(chunk size) per skip. At 1000 that
+  # makes the early-stop fixture take minutes; at 100 it is seconds, and the logic under test is
+  # identical. The constitutional default of 1000 still applies in application.yml.
+  chunk-size: 100
+  reject-threshold:
+    ratio: 0.25
+    min-records: 1000
+  delivery-deadline: "03:00"
+  operational-cutoff: "06:00"
+  expected-run-duration: PT30M
+  resend-window: PT1H
+  settlement-types:
+    - CREDIT
+    - DEBIT
+  private-key-path: ./target/test-keys/private.asc
+  private-key-passphrase: ""
+  retention:
+    staged-days: 30
+    audit-days: 2555
+
+logging:
+  level:
+    com.ledgersync.batch: INFO
+    org.springframework.batch: WARN
