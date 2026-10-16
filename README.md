@@ -342,6 +342,8 @@ Four tables: `settlement_run` (the audit unit, with a unique fingerprint), `sett
 ├── .claude/skills/               <- the /speckit-* commands
 ├── .github/                      <- CI workflow, pull request template
 ├── pom.xml  docker-compose.yml
+├── landing/                      <- where files are dropped. NOT in a clone: you create it
+├── archive/                      <- where processed files move. Created by the app
 └── src/
     ├── main/java/com/ledgersync/batch/
     │   ├── domain/               <- records shared by the layers
@@ -367,6 +369,13 @@ mvn verify -DexcludedGroups=slow -Dit.jdbc.url=$(scripts/it-db.sh url)   # + 31 
 
 To run the live app and send a sample file, follow
 **[Part A4 of the how-to](docs/how-to-test.md#a4-tier-3--run-the-live-app-end-to-end)**.
+
+> **Where are the `landing/` and `archive/` folders?** In the project root, **but not in a fresh
+> clone**. Both are git-ignored and appear only once you run things. Create them first with
+> `mkdir -p landing archive`: the app never creates `landing`, and if it is missing it logs a
+> warning and silently does nothing. Defaults, how to change them, and a gotcha about starting the
+> app from a different folder are in
+> **[how-to B4](docs/how-to-test.md#b4-where-to-put-the-files)**.
 
 ## 7. How to test
 

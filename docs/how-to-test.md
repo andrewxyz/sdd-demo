@@ -287,13 +287,61 @@ independent proof that nothing was lost, so any disagreement fails the whole fil
 
 ## B4. Where to put the files
 
-Into the **landing zone**, a folder on the machine where the app runs.
+Two folders matter. You put files in the **landing zone**, and the app moves them to the
+**archive** afterwards. Both are on the machine where the app runs.
 
-| How you set it | Value |
-|---|---|
-| Default | `./landing`, relative to the folder you started the app from |
-| Command line | `--ledgersync.landing-zone=/data/landing` |
-| Environment variable | `LEDGERSYNC_LANDING_ZONE=/data/landing` |
+| Folder | What it is for | Default | Who creates it |
+|---|---|---|---|
+| **Landing zone** | where you drop files | `./landing` | **You.** The app never creates it. (`send` and `drop` do, as a convenience) |
+| **Archive** | where processed files are moved | `./archive` | The app, as `archive/<business-date>/` the first time it processes a file |
+
+### Where they are in this project
+
+The defaults are **relative to the folder you start the app from**. Started from the project root
+(the `sdd-demo` folder), you get:
+
+| Folder | Windows | WSL |
+|---|---|---|
+| Landing zone | `C:\Users\<you>\...\sdd-demo\landing` | `/mnt/c/Users/<you>/.../sdd-demo/landing` |
+| Archive | `C:\Users\<you>\...\sdd-demo\archive` | `/mnt/c/Users/<you>/.../sdd-demo/archive` |
+
+Start the app from a different folder and both appear there instead.
+
+### How to change them
+
+| Setting | Landing zone | Archive |
+|---|---|---|
+| Command line | `--ledgersync.landing-zone=/data/landing` | `--ledgersync.archive=/data/archive` |
+| Environment variable | `LEDGERSYNC_LANDING_ZONE=/data/landing` | `LEDGERSYNC_ARCHIVE=/data/archive` |
+
+Use absolute paths for anything beyond a quick test, so the location doesn't depend on where
+someone happened to launch the app.
+
+### You will not see them in a fresh clone
+
+Both folders are **git-ignored**, so they are not on GitHub and not in a clone. They exist only
+after you run things. `scripts/e2e-setup.sh reset` deletes both, and `reset` is also why they may
+be missing right now. Create them before starting the app:
+
+```bash
+mkdir -p landing archive
+```
+
+If you skip this the app starts normally, logs one warning that the landing zone does not exist,
+and then does nothing. There is no error.
+
+### Make sure the app and the scripts agree
+
+The helper scripts **always** use `landing/` and `archive/` in the project root, wherever you run
+them from. The app uses the folders **relative to where it was started**. If you start the app from
+another directory, the script drops files where the app is not looking, and again nothing happens
+and nothing errors.
+
+- **Fix:** start the app from the project root, or give it absolute paths that match.
+- **Check:** from the folder you started the app in, run `ls -d landing archive`. If the files you
+  dropped are not under it, that is your problem.
+
+### Rules for the landing zone
 
 - **The folder must exist first.** The app does not create it; if it is missing it logs one warning
   and does nothing.
