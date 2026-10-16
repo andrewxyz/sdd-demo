@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: ledgersync-batch
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/ledgersync}
+    username: ${DB_USER:ledgersync}
+    password: ${DB_PASSWORD:}
+    hikari:
+      pool-name: ledgersync-pool
+      maximum-pool-size: 10
+
+  jpa:
+    hibernate:
+      # Constitution IV: Liquibase owns the schema. Any value other than validate or none
+      # is prohibited.
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 100
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      # The settlement job is triggered by sentinel arrival, never on startup.
+      enabled: false
+
+ledgersync:
+  landing-zone: ${LEDGERSYNC_LANDING_ZONE:./landing}
+  archive: ${LEDGERSYNC_ARCHIVE:./archive}
+  # FR-001: the landing zone is scanned automatically; the sentinel is the trigger.
+  poll:
+    enabled: true
+    interval: PT30S
+  chunk-size: 1000
+  reject-threshold:
+    ratio: 0.25
+    min-records: 1000
+  # FR-002c: the deadline is set relative to the cutoff, leaving room for a run plus one resend.
+  delivery-deadline: "03:00"
+  operational-cutoff: "06:00"
+  expected-run-duration: PT30M
+  resend-window: PT1H
+  settlement-types:
+    - CREDIT
+    - DEBIT
+  # Key material comes from the existing key-management arrangement at runtime.
+  # Never commit a key or passphrase (Constitution: Technology Stack).
+  private-key-path: ${LEDGERSYNC_PGP_KEY:./keys/ledgersync-private.asc}
+  private-key-passphrase: ${LEDGERSYNC_PGP_PASSPHRASE:}
+
+logging:
+  level:
+    com.ledgersync.batch: INFO

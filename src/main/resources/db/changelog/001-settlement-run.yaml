@@ -1,0 +1,136 @@
+databaseChangeLog:
+  # One changeset creates the table AND its SETTLED invariant. Splitting them would mean
+  # editing a merged changeset later, which Constitution IV forbids.
+  - changeSet:
+      id: 001-settlement-run
+      author: ledgersync
+      comment: >-
+        Settlement run: the unit of audit, and the table that makes redelivery detectable.
+      changes:
+        - createTable:
+            tableName: settlement_run
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_settlement_run
+                    nullable: false
+              - column:
+                  name: execution_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uq_settlement_run_execution_id
+              - column:
+                  name: source_file_name
+                  type: VARCHAR(512)
+                  constraints:
+                    nullable: false
+              # FR-006/FR-027: the idempotency guarantee, enforced by the database rather than
+              # by an application check, so two near-simultaneous deliveries cannot race.
+              # VARCHAR rather than CHAR: the value is always 64 hex characters, but CHAR maps
+              # to bpchar, which Hibernate's schema validation rejects for a String field. The
+              # length constraint carries the intent without the blank-padding semantics.
+              - column:
+                  name: content_fingerprint
+                  type: VARCHAR(64)
+                  constraints:
+                    nullable: false
+                    unique: true
+                    uniqueConstraintName: uq_settlement_run_fingerprint
+              - column:
+                  name: business_date
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: started_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: completed_at
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: records_read
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: records_rejected
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: records_applied
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: declared_count
+                  type: BIGINT
+              - column:
+                  name: declared_net_total
+                  type: NUMERIC(19,4)
+              - column:
+                  name: observed_count
+                  type: BIGINT
+              - column:
+                  name: observed_net_total
+                  type: NUMERIC(19,4)
+              - column:
+                  name: failure_reason
+                  type: VARCHAR(256)
+              - column:
+                  name: early_stopped
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+
+        - createIndex:
+            tableName: settlement_run
+            indexName: ix_settlement_run_business_date
+            columns:
+              - column:
+                  name: business_date
+
+        - sql:
+            comment: Terminal status set is closed (FR-005).
+            sql: >-
+              ALTER TABLE settlement_run ADD CONSTRAINT ck_settlement_run_status
+              CHECK (status IN ('PENDING', 'RUNNING', 'FAILED', 'SETTLED'))
+            rollback: ALTER TABLE settlement_run DROP CONSTRAINT ck_settlement_run_status
+
+        # Clarification Q1, enforced where it cannot be forgotten: a run may only be SETTLED if
+        # nothing was rejected and the observed totals match the full declared header.
+        - sql:
+            comment: SETTLED requires zero rejects and exact agreement with the header (FR-020).
+            sql: >-
+              ALTER TABLE settlement_run ADD CONSTRAINT ck_settlement_run_settled_invariant
+              CHECK (status <> 'SETTLED' OR (
+                records_rejected = 0
+                AND observed_count IS NOT NULL AND declared_count IS NOT NULL
+                AND observed_count = declared_count
+                AND observed_net_total IS NOT NULL AND declared_net_total IS NOT NULL
+                AND observed_net_total = declared_net_total))
+            rollback: ALTER TABLE settlement_run DROP CONSTRAINT ck_settlement_run_settled_invariant
+
+        - sql:
+            comment: A terminal run must record when it finished (data-model.md section 1).
+            sql: >-
+              ALTER TABLE settlement_run ADD CONSTRAINT ck_settlement_run_completed_at
+              CHECK (status NOT IN ('FAILED', 'SETTLED') OR completed_at IS NOT NULL)
+            rollback: ALTER TABLE settlement_run DROP CONSTRAINT ck_settlement_run_completed_at

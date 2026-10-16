@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: ledgersync-postgres
+    environment:
+      POSTGRES_DB: ledgersync
+      POSTGRES_USER: ledgersync
+      POSTGRES_PASSWORD: ledgersync
+    ports:
+      - "5432:5432"
+    volumes:
+      - ledgersync-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledgersync -d ledgersync"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ledgersync-pgdata:

@@ -1,0 +1,11 @@
+# Constitution IV: Liquibase owns the schema. Manual DDL against any environment is prohibited,
+# and changesets are immutable once merged — corrections require a new changeset.
+databaseChangeLog:
+  - include:
+      file: db/changelog/001-settlement-run.yaml
+  - include:
+      file: db/changelog/002-staged-transaction.yaml
+  - include:
+      file: db/changelog/003-rejected-record.yaml
+  - include:
+      file: db/changelog/004-customer-balance.yaml
