@@ -388,6 +388,7 @@ Everything lives in **[docs/how-to-test.md](docs/how-to-test.md)**:
 | Looking for the file format, folder, and where files end up | [B3](docs/how-to-test.md#b3-what-goes-inside-the-file), [B4](docs/how-to-test.md#b4-where-to-put-the-files), [B5](docs/how-to-test.md#b5-what-happens-to-the-file-its-life-cycle) |
 | Looking for sample files and expected results | [B6](docs/how-to-test.md#b6-sample-files) |
 | Looking for the SQL to check results | [B7](docs/how-to-test.md#b7-checking-the-result-in-the-database) |
+| Looking to watch or re-run CI | [A6](docs/how-to-test.md#a6-ci--see-it-re-run-it) |
 
 ### What is CI, and why does this project have it?
 
@@ -424,6 +425,18 @@ request, GitHub starts three jobs on its own computers:
 
 **Where to look.** Open the repository on GitHub and click the **Actions** tab. A green tick means
 everything passed. A red cross means something broke, and clicking it shows what.
+
+**Re-running it** (needs the GitHub CLI, `gh`). Run these inside the repository folder:
+
+```bash
+gh run list                                     # find a run ID: the long number in each row
+gh run rerun <run-id>                           # run all the jobs of that run again
+gh run rerun $(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')   # re-run the newest run
+```
+
+The run ID is the long number such as `38900788822` in the `gh run list` output, and also the end of
+a run's web address. Where it comes from, why there is no "run from scratch" command yet, and how to
+run the same checks locally are explained in **[how-to A6](docs/how-to-test.md#a6-ci--see-it-re-run-it)**.
 
 **How it ties back to this journey.** The constitution said rules such as "no field `@Autowired`"
 are non-negotiable. CI is what **enforces** them: if someone later breaks a rule, the build turns red

@@ -167,6 +167,92 @@ Part B walks through all five sample files and what each should produce.
 | `repackage` error during `mvn verify` | The jar is still held by a running app. Stop it first |
 | gpg: `unsafe permissions on homedir` | Harmless on a Windows-mounted drive; the script suppresses it |
 
+## A6. CI — see it, re-run it
+
+CI is the robot that runs the tests on GitHub's own computers every time you push. If the idea is
+new to you, start with [What is CI?](../README.md#what-is-ci-and-why-does-this-project-have-it).
+You can watch it and re-run it from your terminal with the GitHub CLI.
+
+**Prerequisite:** `gh` installed and signed in. Check with `gh auth status`.
+
+| Command | What it does |
+|---|---|
+| `gh run list` | List recent runs, newest first |
+| `gh run view <run-id>` | Show one run and its jobs |
+| `gh run watch <run-id>` | Follow a run live until it finishes |
+| `gh run rerun <run-id>` | Run all of its jobs again |
+| `gh run rerun <run-id> --failed` | Run again only the jobs that failed |
+
+Inside the cloned repository folder, `gh` finds the repository by itself. From anywhere else, add
+`-R <owner>/<repo>`, for example `-R andrewxyz/sdd-demo`.
+
+### Where the run ID comes from
+
+Every CI run gets its own unique number from GitHub. It is the long number in the `gh run list`
+output:
+
+```text
+completed  success  docs: say where the landing...  CI    master  push   38900788822  2m43s     2026-10-16T12:39:11Z
+status     result   commit message                  flow  branch  event  RUN ID       duration  started
+```
+
+It is also the last part of the run's web address, so you can click a run in the repository's
+**Actions** tab and copy it from the URL:
+
+```text
+https://github.com/andrewxyz/sdd-demo/actions/runs/38900788822
+                                                   └── the run ID
+```
+
+### The commands
+
+```bash
+# 1. Look at the recent runs and pick an ID
+gh run list
+
+# 2. Re-run one of them. The number is only an example: use an ID from your own list
+gh run rerun 38900788822 -R andrewxyz/sdd-demo
+
+# 3. Re-run whichever run is the newest, without copying the ID yourself
+gh run rerun $(gh run list -R andrewxyz/sdd-demo --limit 1 --json databaseId --jq '.[0].databaseId') -R andrewxyz/sdd-demo
+```
+
+**How command 3 works.** The part inside `$( ... )` runs first:
+
+| Piece | Meaning |
+|---|---|
+| `gh run list --limit 1` | fetch only the newest run |
+| `--json databaseId` | ask for just its ID field |
+| `--jq '.[0].databaseId'` | pull the number out of the result |
+| the outer `gh run rerun <that number>` | re-run it |
+
+This was tested: the run's attempt count went from 3 to 4.
+
+### Good to know
+
+- **IDs go stale.** Every push creates a new run with a new ID, so run `gh run list` and use the
+  number you see now.
+- **Only a finished run can be re-run.** Trying one that is still `in_progress` is refused with
+  `run <id> cannot be rerun; This workflow is already running`. Wait for it to finish.
+- **A re-run uses the same commit.** It re-checks the same code, and the run's ID stays the same
+  while its *attempt* number goes up. To check new code, push it.
+- **There is no "run from scratch" command yet.** The workflow only starts on a push to `master` or
+  a pull request, so `gh workflow run ci.yml` fails with *does not have a workflow_dispatch
+  trigger*. To start a run without changing any code, push an empty commit:
+  `git commit --allow-empty -m "ci: trigger a run" && git push`.
+  Adding a manual trigger would be a small change to `ci.yml`, but the throughput job is limited to
+  `push` events, so it would also need adjusting or it would be skipped on a manual run.
+
+### The same checks on your own machine
+
+Each CI job is just commands you can run yourself:
+
+| CI job | Run it locally |
+|---|---|
+| Unit tests and constitution gates | `mvn test` |
+| Integration tests | `mvn verify -DexcludedGroups=slow` (add `-Dit.jdbc.url=...` on Docker 29+, see A3) |
+| Throughput | `mvn verify -Dgroups=slow` |
+
 ---
 
 # Part B — User guide (no code needed)
